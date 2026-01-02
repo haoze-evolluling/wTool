@@ -177,36 +177,15 @@ class ContextMenuSwitcher:
         )
         countdown_button.pack(side=tk.LEFT)
         
-        fixedtime_frame = ttk.Frame(shutdown_frame)
-        fixedtime_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        ttk.Label(
-            fixedtime_frame,
-            text="固定时间关机（HH:MM）:",
-            style='Info.TLabel'
-        ).pack(side=tk.LEFT)
-        
-        self.time_var = tk.StringVar()
-        time_entry = ttk.Entry(
-            fixedtime_frame,
-            textvariable=self.time_var,
-            width=10
-        )
-        time_entry.pack(side=tk.LEFT, padx=(5, 5))
-        
-        fixedtime_button = ttk.Button(
-            fixedtime_frame,
-            text="设置固定时间",
-            command=self.set_fixed_time_shutdown
-        )
-        fixedtime_button.pack(side=tk.LEFT)
-        
         cancel_button = ttk.Button(
             shutdown_frame,
             text="取消定时关机",
             command=self.cancel_shutdown
         )
         cancel_button.pack(fill=tk.X)
+        
+        spacer_frame = ttk.Frame(left_frame)
+        spacer_frame.pack(fill=tk.BOTH, expand=True)
         
         new_features_frame = ttk.LabelFrame(right_frame, text="新功能区域", padding="15")
         new_features_frame.pack(fill=tk.BOTH, expand=True)
@@ -395,34 +374,6 @@ class ContextMenuSwitcher:
             messagebox.showinfo("设置成功", f"已设置 {minutes} 分钟后关机！")
         except Exception as e:
             messagebox.showerror("错误", f"设置倒计时关机时出错：{str(e)}")
-    
-    def set_fixed_time_shutdown(self):
-        try:
-            time_str = self.time_var.get()
-            if not time_str:
-                messagebox.showerror("输入错误", "请输入关机时间！")
-                return
-            
-            try:
-                target_time = self.shutdown_scheduler.parse_time(time_str)
-            except ValueError as e:
-                messagebox.showerror("输入错误", str(e))
-                return
-            
-            if self.shutdown_scheduler.is_shutdown_scheduled:
-                result = messagebox.askyesno(
-                    "确认替换",
-                    "已存在定时关机任务。\n\n是否取消当前任务并设置新的固定时间关机？"
-                )
-                if not result:
-                    return
-                self.shutdown_scheduler.cancel_shutdown()
-            
-            self.shutdown_scheduler.schedule_fixed_time_shutdown(target_time, self.update_shutdown_status)
-            self.update_shutdown_status()
-            messagebox.showinfo("设置成功", f"已设置在 {time_str} 关机！")
-        except Exception as e:
-            messagebox.showerror("错误", f"设置固定时间关机时出错：{str(e)}")
     
     def cancel_shutdown(self):
         try:
