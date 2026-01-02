@@ -9,6 +9,13 @@ import time
 from shutdown_scheduler import ShutdownScheduler
 
 
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+
 def run_as_admin():
     try:
         if sys.platform == 'win32':
@@ -26,7 +33,7 @@ class ContextMenuSwitcher:
         try:
             self.root = root
             self.root.title("Windows系统工具箱")
-            self.root.geometry("650x680")
+            self.root.geometry("950x680")
             self.root.resizable(False, False)
             
             self.current_mode = self.get_current_mode()
@@ -35,7 +42,6 @@ class ContextMenuSwitcher:
             self.setup_ui()
             
             self.root.update()
-            self.root.after(500, self.check_admin_privileges)
             self.root.after(1000, self.periodic_update_shutdown_status)
         except Exception as e:
             messagebox.showerror("初始化错误", f"程序初始化时出错：{str(e)}")
@@ -59,7 +65,16 @@ class ContextMenuSwitcher:
         )
         title_label.pack(pady=(0, 25))
         
-        info_frame = ttk.LabelFrame(main_frame, text="当前状态", padding="15")
+        content_frame = ttk.Frame(main_frame)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        left_frame = ttk.Frame(content_frame)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+        
+        right_frame = ttk.Frame(content_frame)
+        right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(12, 0))
+        
+        info_frame = ttk.LabelFrame(left_frame, text="当前状态", padding="15")
         info_frame.pack(fill=tk.X, pady=(0, 15))
         
         self.status_label = ttk.Label(
@@ -69,7 +84,7 @@ class ContextMenuSwitcher:
         )
         self.status_label.pack(anchor=tk.W, pady=2)
         
-        mode_frame = ttk.LabelFrame(main_frame, text="右键菜单切换", padding="15")
+        mode_frame = ttk.LabelFrame(left_frame, text="右键菜单切换", padding="15")
         mode_frame.pack(fill=tk.X, pady=(0, 15))
         
         self.mode_var = tk.StringVar(value=self.current_mode)
@@ -92,7 +107,7 @@ class ContextMenuSwitcher:
         )
         win11_radio.pack(anchor=tk.W, pady=6)
         
-        button_frame = ttk.Frame(main_frame)
+        button_frame = ttk.Frame(left_frame)
         button_frame.pack(fill=tk.X, pady=(0, 15))
         
         self.switch_button = ttk.Button(
@@ -109,7 +124,7 @@ class ContextMenuSwitcher:
         )
         restart_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0))
         
-        dns_frame = ttk.LabelFrame(main_frame, text="网络工具", padding="15")
+        dns_frame = ttk.LabelFrame(left_frame, text="网络工具", padding="15")
         dns_frame.pack(fill=tk.X, pady=(0, 15))
         
         dns_info_label = ttk.Label(
@@ -127,7 +142,7 @@ class ContextMenuSwitcher:
         )
         dns_button.pack(fill=tk.X)
         
-        shutdown_frame = ttk.LabelFrame(main_frame, text="定时关机", padding="15")
+        shutdown_frame = ttk.LabelFrame(left_frame, text="定时关机", padding="15")
         shutdown_frame.pack(fill=tk.X, pady=(0, 15))
         
         self.shutdown_status_label = ttk.Label(
@@ -193,47 +208,40 @@ class ContextMenuSwitcher:
         )
         cancel_button.pack(fill=tk.X)
         
-        admin_frame = ttk.LabelFrame(main_frame, text="权限信息", padding="12")
+        admin_frame = ttk.LabelFrame(left_frame, text="权限信息", padding="12")
         admin_frame.pack(fill=tk.X)
         
         self.admin_label = ttk.Label(
             admin_frame,
-            text="检查管理员权限中...",
-            style='Info.TLabel'
+            text="管理员模式",
+            style='Info.TLabel',
+            foreground="#27ae60"
         )
         self.admin_label.pack(anchor=tk.W)
         
-    def is_admin(self):
-        try:
-            return ctypes.windll.shell32.IsUserAnAdmin()
-        except:
-            return False
-    
+        new_features_frame = ttk.LabelFrame(right_frame, text="新功能区域", padding="15")
+        new_features_frame.pack(fill=tk.BOTH, expand=True)
+        
+        new_features_label = ttk.Label(
+            new_features_frame,
+            text="此处可以添加新的功能模块",
+            style='Info.TLabel',
+            foreground="#666"
+        )
+        new_features_label.pack(anchor=tk.W, pady=10)
+        
     def check_admin_privileges(self):
         try:
-            if self.is_admin():
+            if is_admin():
                 self.admin_label.config(
-                    text="✓ 已获得管理员权限",
+                    text="✓ 管理员模式",
                     foreground="#27ae60"
                 )
             else:
                 self.admin_label.config(
-                    text="✗ 未获得管理员权限",
+                    text="✗ 非管理员模式",
                     foreground="#e74c3c"
                 )
-                result = messagebox.askyesno(
-                    "权限提示",
-                    "程序需要管理员权限才能使用完整功能。\n\n是否自动以管理员身份重新启动程序？"
-                )
-                if result:
-                    self.root.destroy()
-                    run_as_admin()
-                    sys.exit(0)
-                else:
-                    messagebox.showwarning(
-                        "权限警告",
-                        "部分功能可能无法正常使用。\n建议以管理员身份运行此程序。"
-                    )
         except Exception as e:
             self.admin_label.config(
                 text="权限检测失败",
@@ -489,6 +497,15 @@ class ContextMenuSwitcher:
 
 def main():
     try:
+        if not is_admin():
+            result = messagebox.askyesno(
+                "权限提示",
+                "程序需要管理员权限才能正常运行。\n\n是否自动以管理员身份重新启动程序？"
+            )
+            if result:
+                run_as_admin()
+            sys.exit(0)
+        
         root = tk.Tk()
         app = ContextMenuSwitcher(root)
         root.mainloop()
