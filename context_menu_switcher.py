@@ -33,7 +33,7 @@ class ContextMenuSwitcher:
         try:
             self.root = root
             self.root.title("Windows系统工具箱")
-            self.root.geometry("950x680")
+            self.root.geometry("950x750")
             self.root.resizable(False, False)
             
             self.current_mode = self.get_current_mode()
@@ -208,17 +208,6 @@ class ContextMenuSwitcher:
         )
         cancel_button.pack(fill=tk.X)
         
-        admin_frame = ttk.LabelFrame(left_frame, text="权限信息", padding="12")
-        admin_frame.pack(fill=tk.X)
-        
-        self.admin_label = ttk.Label(
-            admin_frame,
-            text="管理员模式",
-            style='Info.TLabel',
-            foreground="#27ae60"
-        )
-        self.admin_label.pack(anchor=tk.W)
-        
         new_features_frame = ttk.LabelFrame(right_frame, text="新功能区域", padding="15")
         new_features_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -230,24 +219,6 @@ class ContextMenuSwitcher:
         )
         new_features_label.pack(anchor=tk.W, pady=10)
         
-    def check_admin_privileges(self):
-        try:
-            if is_admin():
-                self.admin_label.config(
-                    text="✓ 管理员模式",
-                    foreground="#27ae60"
-                )
-            else:
-                self.admin_label.config(
-                    text="✗ 非管理员模式",
-                    foreground="#e74c3c"
-                )
-        except Exception as e:
-            self.admin_label.config(
-                text="权限检测失败",
-                foreground="#e74c3c"
-            )
-    
     def get_current_mode(self):
         try:
             key = winreg.OpenKey(
@@ -270,7 +241,7 @@ class ContextMenuSwitcher:
             self.switch_button.config(state=tk.DISABLED)
     
     def apply_changes(self):
-        if not self.is_admin():
+        if not is_admin():
             messagebox.showerror(
                 "权限错误",
                 "需要管理员权限才能应用更改！\n请以管理员身份运行此程序。"
@@ -359,7 +330,7 @@ class ContextMenuSwitcher:
             )
     
     def clear_dns_cache(self):
-        if not self.is_admin():
+        if not is_admin():
             messagebox.showerror(
                 "权限错误",
                 "需要管理员权限才能清理DNS缓存！\n请以管理员身份运行此程序。"
