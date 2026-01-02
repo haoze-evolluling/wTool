@@ -463,7 +463,7 @@ class ContextMenuSwitcher:
         except Exception as e:
             messagebox.showerror("错误", f"取消定时关机时出错：{str(e)}")
     
-    def update_shutdown_status(self):
+    def update_shutdown_status(self, remaining=None):
         try:
             if self.shutdown_scheduler.is_shutdown_scheduled:
                 status_text = self.shutdown_scheduler.get_status()
