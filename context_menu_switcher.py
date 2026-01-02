@@ -6,6 +6,7 @@ import sys
 import subprocess
 import os
 import time
+from shutdown_scheduler import ShutdownScheduler
 
 
 def run_as_admin():
@@ -25,15 +26,17 @@ class ContextMenuSwitcher:
         try:
             self.root = root
             self.root.title("Windows系统工具箱")
-            self.root.geometry("650x580")
+            self.root.geometry("650x680")
             self.root.resizable(False, False)
             
             self.current_mode = self.get_current_mode()
+            self.shutdown_scheduler = ShutdownScheduler()
             
             self.setup_ui()
             
             self.root.update()
             self.root.after(500, self.check_admin_privileges)
+            self.root.after(1000, self.periodic_update_shutdown_status)
         except Exception as e:
             messagebox.showerror("初始化错误", f"程序初始化时出错：{str(e)}")
             sys.exit(1)
@@ -123,6 +126,72 @@ class ContextMenuSwitcher:
             command=self.clear_dns_cache
         )
         dns_button.pack(fill=tk.X)
+        
+        shutdown_frame = ttk.LabelFrame(main_frame, text="定时关机", padding="15")
+        shutdown_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        self.shutdown_status_label = ttk.Label(
+            shutdown_frame,
+            text="当前状态: 未设置定时关机",
+            style='Info.TLabel',
+            foreground="#666"
+        )
+        self.shutdown_status_label.pack(anchor=tk.W, pady=(0, 10))
+        
+        countdown_frame = ttk.Frame(shutdown_frame)
+        countdown_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(
+            countdown_frame,
+            text="倒计时关机（分钟）:",
+            style='Info.TLabel'
+        ).pack(side=tk.LEFT)
+        
+        self.countdown_var = tk.StringVar(value="30")
+        countdown_entry = ttk.Entry(
+            countdown_frame,
+            textvariable=self.countdown_var,
+            width=10
+        )
+        countdown_entry.pack(side=tk.LEFT, padx=(5, 5))
+        
+        countdown_button = ttk.Button(
+            countdown_frame,
+            text="设置倒计时",
+            command=self.set_countdown_shutdown
+        )
+        countdown_button.pack(side=tk.LEFT)
+        
+        fixedtime_frame = ttk.Frame(shutdown_frame)
+        fixedtime_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(
+            fixedtime_frame,
+            text="固定时间关机（HH:MM）:",
+            style='Info.TLabel'
+        ).pack(side=tk.LEFT)
+        
+        self.time_var = tk.StringVar()
+        time_entry = ttk.Entry(
+            fixedtime_frame,
+            textvariable=self.time_var,
+            width=10
+        )
+        time_entry.pack(side=tk.LEFT, padx=(5, 5))
+        
+        fixedtime_button = ttk.Button(
+            fixedtime_frame,
+            text="设置固定时间",
+            command=self.set_fixed_time_shutdown
+        )
+        fixedtime_button.pack(side=tk.LEFT)
+        
+        cancel_button = ttk.Button(
+            shutdown_frame,
+            text="取消定时关机",
+            command=self.cancel_shutdown
+        )
+        cancel_button.pack(fill=tk.X)
         
         admin_frame = ttk.LabelFrame(main_frame, text="权限信息", padding="12")
         admin_frame.pack(fill=tk.X)
@@ -320,6 +389,102 @@ class ContextMenuSwitcher:
                 "错误",
                 f"清理DNS缓存时出错：{str(e)}"
             )
+    
+    def set_countdown_shutdown(self):
+        try:
+            minutes = self.countdown_var.get()
+            if not minutes or not minutes.isdigit():
+                messagebox.showerror("输入错误", "请输入有效的分钟数！")
+                return
+            
+            minutes = int(minutes)
+            if minutes <= 0:
+                messagebox.showerror("输入错误", "分钟数必须大于0！")
+                return
+            
+            if self.shutdown_scheduler.is_shutdown_scheduled:
+                result = messagebox.askyesno(
+                    "确认替换",
+                    "已存在定时关机任务。\n\n是否取消当前任务并设置新的倒计时关机？"
+                )
+                if not result:
+                    return
+                self.shutdown_scheduler.cancel_shutdown()
+            
+            self.shutdown_scheduler.schedule_countdown_shutdown(minutes * 60, self.update_shutdown_status)
+            self.update_shutdown_status()
+            messagebox.showinfo("设置成功", f"已设置 {minutes} 分钟后关机！")
+        except Exception as e:
+            messagebox.showerror("错误", f"设置倒计时关机时出错：{str(e)}")
+    
+    def set_fixed_time_shutdown(self):
+        try:
+            time_str = self.time_var.get()
+            if not time_str:
+                messagebox.showerror("输入错误", "请输入关机时间！")
+                return
+            
+            try:
+                target_time = self.shutdown_scheduler.parse_time(time_str)
+            except ValueError as e:
+                messagebox.showerror("输入错误", str(e))
+                return
+            
+            if self.shutdown_scheduler.is_shutdown_scheduled:
+                result = messagebox.askyesno(
+                    "确认替换",
+                    "已存在定时关机任务。\n\n是否取消当前任务并设置新的固定时间关机？"
+                )
+                if not result:
+                    return
+                self.shutdown_scheduler.cancel_shutdown()
+            
+            self.shutdown_scheduler.schedule_fixed_time_shutdown(target_time, self.update_shutdown_status)
+            self.update_shutdown_status()
+            messagebox.showinfo("设置成功", f"已设置在 {time_str} 关机！")
+        except Exception as e:
+            messagebox.showerror("错误", f"设置固定时间关机时出错：{str(e)}")
+    
+    def cancel_shutdown(self):
+        try:
+            if not self.shutdown_scheduler.is_shutdown_scheduled:
+                messagebox.showinfo("提示", "当前没有设置定时关机任务。")
+                return
+            
+            result = messagebox.askyesno(
+                "确认取消",
+                "确定要取消定时关机任务吗？"
+            )
+            
+            if result:
+                self.shutdown_scheduler.cancel_shutdown()
+                self.update_shutdown_status()
+                messagebox.showinfo("取消成功", "定时关机任务已取消！")
+        except Exception as e:
+            messagebox.showerror("错误", f"取消定时关机时出错：{str(e)}")
+    
+    def update_shutdown_status(self):
+        try:
+            if self.shutdown_scheduler.is_shutdown_scheduled:
+                status_text = self.shutdown_scheduler.get_status()
+                self.shutdown_status_label.config(
+                    text=f"当前状态: {status_text}",
+                    foreground="#e67e22"
+                )
+            else:
+                self.shutdown_status_label.config(
+                    text="当前状态: 未设置定时关机",
+                    foreground="#666"
+                )
+        except Exception as e:
+            print(f"Error updating shutdown status: {e}")
+    
+    def periodic_update_shutdown_status(self):
+        try:
+            self.update_shutdown_status()
+            self.root.after(1000, self.periodic_update_shutdown_status)
+        except Exception as e:
+            print(f"Error in periodic update: {e}")
 
 
 def main():
